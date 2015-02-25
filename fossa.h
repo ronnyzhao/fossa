@@ -101,6 +101,15 @@ typedef struct _stati64 ns_stat_t;
 #endif
 #define DIRSEP '\\'
 #else /* not _WIN32 */
+#ifdef PICOTCP  
+  #define fcntl   pico_fcntl
+  #define time(x) PICO_TIME()
+  #include "pico_config.h"
+  #include "pico_bsd_sockets.h"
+  #ifndef SOMAXCONN
+    #define SOMAXCONN (16)
+  #endif
+#else
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -111,6 +120,7 @@ typedef struct _stati64 ns_stat_t;
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#endif /* PICOTCP */
 #define closesocket(x) close(x)
 #define __cdecl
 #define INVALID_SOCKET (-1)
