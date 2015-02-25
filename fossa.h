@@ -109,6 +109,9 @@ typedef struct _stati64 ns_stat_t;
   #ifndef SOMAXCONN
     #define SOMAXCONN (16)
   #endif
+  #ifdef _POSIX_VERSION
+    #define signal(...)
+  #endif
 #else
 #include <errno.h>
 #include <fcntl.h>
