@@ -45,7 +45,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <fcntl.h>
+//#include <fcntl.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -53,6 +53,7 @@
 #include <string.h>
 #include <time.h>
 #include <signal.h>
+#include "pico_bsd_syscalls.h"
 
 #ifndef va_copy
 #ifdef __va_copy
