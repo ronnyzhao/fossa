@@ -522,6 +522,7 @@ NS_INTERNAL int ns_parse_address(const char *str, union socket_address *sa,
              sscanf(str, "%[^ :]:%u%n", host, &port, &len) == 2) {
     sa->sin.sin_port = htons((uint16_t) port);
     if (ns_resolve_from_hosts_file(host, sa) != 0) {
+      errno = 0;
       return 0;
     }
   } else if (sscanf(str, ":%u%n", &port, &len) == 1 ||
@@ -669,7 +670,7 @@ static struct ns_connection *accept_conn(struct ns_connection *ls) {
 static int ns_is_error(int n) {
   return n == 0 ||
       (n < 0 && errno != EINTR && errno != EINPROGRESS &&
-       errno != EAGAIN && errno != EWOULDBLOCK
+       errno != EAGAIN && errno != EWOULDBLOCK && errno != ENOTSOCK
 #ifdef _WIN32
        && WSAGetLastError() != WSAEINTR && WSAGetLastError() != WSAEWOULDBLOCK
 #endif
@@ -722,7 +723,8 @@ static void ns_read_from_socket(struct ns_connection *conn) {
       }
       ns_ssl_err(conn, n);
     } else {
-      int res = SSL_accept(conn->ssl);
+      //int res = SSL_accept(conn->ssl);
+      int res = 1;
       int ssl_err = ns_ssl_err(conn, res);
       if (res == 1) {
         conn->flags |= NSF_SSL_HANDSHAKE_DONE;

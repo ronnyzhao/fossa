@@ -1,31 +1,24 @@
-# Copyright (c) 2014 Cesanta Software
-# All rights reserved
+-include ../../config.mk
+-include ../../tools/kconfig/.config
 
-# Note: order is important
-SUBDIRS = src docs test examples apps
+PREFIX?=$(PWD)/build
+CROSS_COMPILE?=arm-none-eabi-
+CC?=gcc
+ARCH?=stm32
+OBJS:=fossa.o
+CFLAGS=-Iconfig $(EXTRA_CFLAGS) $(PLATFORM_CFLAGS) -I $(PREFIX)/include -DMONGOOSE_NO_FILESYSTEM -DMONGOOSE_NO_MMAP -DNS_DISABLE_THREADS -DMONGOOSE_NO_THREADS -DNS_DISABLE_SOCKETPAIR -DMONGOOSE_NO_SOCKETPAIR -DPICOTCP
+#CFLAGS += -DNS_ENABLE_DEBUG
+#CFLAGS += -DFREERTOS
 
-.PHONY: all $(SUBDIRS)
+all: $(PREFIX)/lib/libfossa.a
 
-all: $(SUBDIRS)
+%.o: %.c 
+	$(CC) -c $(CFLAGS) -I . -o $@ $<
 
-$(SUBDIRS): %:
-	@$(MAKE) -C $@
-
-# full test suite, requiring more dependencies on the dev's machine
-alltests: all
-	@$(MAKE) -C test docker valgrind cpplint
-
-difftest:
-	@TMP=`mktemp -t checkout-diff.XXXXXX`; \
-	git diff docs/index.html fossa.c fossa.h >$$TMP ; \
-	if [ -s "$$TMP" ]; then echo found diffs in checkout:; git status -s;  exit 1; fi; \
-	rm $$TMP
-
-update-frozen:
-	git subtree pull --prefix deps/frozen https://github.com/cesanta/frozen master --squash
-
-setup-hooks:
-	for i in .hooks/*; do ln -s ../../.hooks/$$(basename $$i) .git/hooks; done
-
+$(PREFIX)/lib/libfossa.a: $(OBJS)
+	cp *.h $(PREFIX)/include
+	@$(CROSS_COMPILE)ar cru $@ $(OBJS)
+	@$(CROSS_COMPILE)ranlib $@
+	
 clean:
-	@for i in $(SUBDIRS); do $(MAKE) -C $$i clean ; done
+	rm -f *.o *.a
