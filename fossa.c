@@ -1855,7 +1855,10 @@ static void ns_read_from_socket(struct ns_connection *conn) {
       }
       ns_ssl_err(conn, n);
     } else {
-      ns_ssl_accept(conn);
+      if (conn->flags & NSF_LISTENING)
+          ns_ssl_accept(conn);
+      else 
+          conn->flags |= NSF_SSL_HANDSHAKE_DONE;
       return;
     }
   } else
@@ -6471,6 +6474,8 @@ static int ns_get_ip_address_of_nameserver(char *name, size_t name_len) {
     }
     (void) fclose(fp);
   }
+#else
+  snprintf(name, name_len, "udp://8.8.8.8:53");
 #endif /* _WIN32 */
 
   return ret;

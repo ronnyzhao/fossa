@@ -16,7 +16,6 @@
 #   define NS_DISABLE_DIRECTORY_LISTING 
 #   define NS_DISABLE_SOCKETPAIR 
 #   define NS_DISABLE_PFS
-#   define NS_DISABLE_RESOLVER
 #endif
 
 #endif
