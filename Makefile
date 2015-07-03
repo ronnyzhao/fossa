@@ -1,11 +1,24 @@
-# Copyright (c) 2014 Cesanta Software
-# All rights reserved
+-include ../../config.mk
+-include ../../tools/kconfig/.config
 
-SUBDIRS = test examples apps
+PREFIX?=$(PWD)/build
+CROSS_COMPILE?=arm-none-eabi-
+CC?=gcc
+ARCH?=stm32
+OBJS:=fossa.o
+CFLAGS=-Iconfig $(EXTRA_CFLAGS) $(PLATFORM_CFLAGS) -I $(PREFIX)/include -DPICOTCP 
+#CFLAGS += -DNS_ENABLE_DEBUG
+#CFLAGS += -DFREERTOS
 
-.PHONY: $(SUBDIRS)
+all: $(PREFIX)/lib/libfossa.a
 
-all: $(SUBDIRS)
+%.o: %.c 
+	$(CC) -c $(CFLAGS) -I . -o $@ $<
 
-$(SUBDIRS): %:
-	@$(MAKE) -C $@
+$(PREFIX)/lib/libfossa.a: $(OBJS)
+	cp *.h $(PREFIX)/include
+	@$(CROSS_COMPILE)ar cru $@ $(OBJS)
+	@$(CROSS_COMPILE)ranlib $@
+	
+clean:
+	rm -f *.o *.a
