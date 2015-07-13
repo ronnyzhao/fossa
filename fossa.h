@@ -103,6 +103,14 @@ typedef struct _stati64 ns_stat_t;
 #define DIRSEP '\\'
 #else /* not _WIN32 */
 #ifdef PICOTCP  
+#   define NO_LIBC
+#   define NS_DISABLE_FILESYSTEM 
+#   define NS_DISABLE_POPEN 
+#   define NS_DISABLE_CGI 
+#   define NS_DISABLE_DIRECTORY_LISTING 
+#   define NS_DISABLE_SOCKETPAIR 
+#   define NS_DISABLE_PFS
+
   #define fcntl   pico_fcntl
   #define time(x) PICO_TIME()
   #include "pico_config.h"
