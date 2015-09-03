@@ -5592,24 +5592,37 @@ void ns_send_mqtt_handshake(struct ns_connection *nc, const char *client_id) {
   ns_send_mqtt_handshake_opt(nc, client_id, opts);
 }
 
+#define USER_AND_PASS
 void ns_send_mqtt_handshake_opt(struct ns_connection *nc, const char *client_id,
                                 struct ns_send_mqtt_handshake_opts opts) {
   uint8_t header = NS_MQTT_CMD_CONNECT << 4;
   uint8_t rem_len;
   uint16_t keep_alive;
   uint16_t client_id_len;
+  uint8_t flags;
+  char username[] = "admin";
+  char password[] = "password";
+  uint16_t usr_len, pwd_len;
 
   /*
    * 9: version_header(len, magic_string, version_number), 1: flags, 2:
    * keep-alive timer,
    * 2: client_identifier_len, n: client_id
    */
-  rem_len = 9 + 1 + 2 + 2 + strlen(client_id);
+  rem_len = 9 + 1 + 2 + 2 + strlen(client_id) 
+#ifdef USER_AND_PASS
+      + 2 + 2
+      + strlen(username) + strlen(password)
+#endif
+      ;
 
   ns_send(nc, &header, 1);
   ns_send(nc, &rem_len, 1);
   ns_send(nc, "\00\06MQIsdp\03", 9);
-  ns_send(nc, &opts.flags, 1);
+#ifdef USER_AND_PASS 
+  flags = opts.flags | (1<<7) | (1<<6);
+#endif
+  ns_send(nc, &flags, 1);
 
   if (opts.keep_alive == 0) {
     opts.keep_alive = 60;
@@ -5620,6 +5633,16 @@ void ns_send_mqtt_handshake_opt(struct ns_connection *nc, const char *client_id,
   client_id_len = htons(strlen(client_id));
   ns_send(nc, &client_id_len, 2);
   ns_send(nc, client_id, strlen(client_id));
+ 
+#ifdef USER_AND_PASS 
+  usr_len = htons(strlen(username));
+  ns_send(nc, &usr_len, 2);
+  ns_send(nc, username, strlen(username));
+
+  pwd_len = htons(strlen(password));
+  ns_send(nc, &pwd_len, 2);
+  ns_send(nc, password, strlen(password));
+#endif
 }
 
 static void ns_mqtt_prepend_header(struct ns_connection *nc, uint8_t cmd,
