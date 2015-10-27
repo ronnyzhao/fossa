@@ -127,6 +127,10 @@ mbuf_insert(struct mbuf *a, size_t off, const void *buf, size_t len) {
   assert(a->len <= a->size);
   assert(off <= a->len);
 #endif
+  
+  /* check buffers */
+//  if (!a->buf)
+//      return 0;
 
   /* check overflow */
   if (~(size_t) 0 - (size_t) a->buf < len) return 0;
@@ -1724,6 +1728,10 @@ const char *ns_set_ssl(struct ns_connection *nc, const char *cert,
   } else if (!(nc->flags & NSF_LISTENING)) {
     SSL_set_fd(nc->ssl, nc->sock);
   }
+
+  // TRYOUT
+  SSL_CTX_set_verify(nc->ssl_ctx, SSL_VERIFY_NONE, 0);
+
   SSL_CTX_set_cipher_list(nc->ssl_ctx, ns_s_cipher_list);
   return result;
 }
@@ -1807,8 +1815,8 @@ static void ns_ssl_accept(struct ns_connection *conn) {
 }
 #endif /* NS_ENABLE_SSL */
 
+char buf_sock[NS_READ_BUFFER_SIZE];
 static void ns_read_from_socket(struct ns_connection *conn) {
-  char buf[NS_READ_BUFFER_SIZE];
   int n = 0;
 
   if (conn->flags & NSF_CONNECTING) {
@@ -1820,6 +1828,7 @@ static void ns_read_from_socket(struct ns_connection *conn) {
     if (ret == 0 && ok == 0 && conn->ssl != NULL) {
       int res = SSL_connect(conn->ssl);
       int ssl_err = ns_ssl_err(conn, res);
+      getsockopt(conn->sock, SOL_SOCKET, SO_ERROR, (char *) &ok, &len); // just to clear the ERR
       if (res == 1) {
         conn->flags |= NSF_SSL_HANDSHAKE_DONE;
         conn->flags &= ~(NSF_WANT_READ | NSF_WANT_WRITE);
@@ -1833,6 +1842,7 @@ static void ns_read_from_socket(struct ns_connection *conn) {
 #endif
     (void) ret;
     DBG(("%p connect ok=%d", conn, ok));
+    printf(("FOSSA: %p connect ok=%d", conn, ok));
     if (ok != 0) {
       conn->flags |= NSF_CLOSE_IMMEDIATELY;
     } else {
@@ -1848,9 +1858,9 @@ static void ns_read_from_socket(struct ns_connection *conn) {
       /* SSL library may have more bytes ready to read then we ask to read.
        * Therefore, read in a loop until we read everything. Without the loop,
        * we skip to the next select() cycle which can just timeout. */
-      while ((n = SSL_read(conn->ssl, buf, sizeof(buf))) > 0) {
+      while ((n = SSL_read(conn->ssl, buf_sock, sizeof(buf_sock))) > 0) {
         DBG(("%p %d bytes <- %d (SSL)", conn, n, conn->sock));
-        mbuf_append(&conn->recv_mbuf, buf, n);
+        mbuf_append(&conn->recv_mbuf, buf_sock, n);
         ns_call(conn, NS_RECV, &n);
       }
       ns_ssl_err(conn, n);
@@ -1865,9 +1875,9 @@ static void ns_read_from_socket(struct ns_connection *conn) {
 #endif
   {
     while ((n = (int) NS_RECV_FUNC(
-                conn->sock, buf, recv_avail_size(conn, sizeof(buf)), 0)) > 0) {
+                conn->sock, buf_sock, recv_avail_size(conn, sizeof(buf_sock)), 0)) > 0) {
       DBG(("%p %d bytes (PLAIN) <- %d", conn, n, conn->sock));
-      mbuf_append(&conn->recv_mbuf, buf, n);
+      mbuf_append(&conn->recv_mbuf, buf_sock, n);
       ns_call(conn, NS_RECV, &n);
     }
   }
@@ -1929,14 +1939,14 @@ int ns_send(struct ns_connection *conn, const void *buf, int len) {
   return (int) ns_out(conn, buf, len);
 }
 
+char buf_udp[NS_UDP_RECEIVE_BUFFER_SIZE];
 static void ns_handle_udp(struct ns_connection *ls) {
   struct ns_connection nc;
-  char buf[NS_UDP_RECEIVE_BUFFER_SIZE];
   int n;
   socklen_t s_len = sizeof(nc.sa);
 
   memset(&nc, 0, sizeof(nc));
-  n = recvfrom(ls->sock, buf, sizeof(buf), 0, &nc.sa.sa, &s_len);
+  n = recvfrom(ls->sock, buf_udp, sizeof(buf_udp), 0, &nc.sa.sa, &s_len);
   if (n <= 0) {
     DBG(("%p recvfrom: %s", ls, strerror(errno)));
   } else {
@@ -1946,7 +1956,7 @@ static void ns_handle_udp(struct ns_connection *ls) {
 
     /* Then override some */
     nc.sa = sa;
-    nc.recv_mbuf.buf = buf;
+    nc.recv_mbuf.buf = buf_udp;
     nc.recv_mbuf.len = nc.recv_mbuf.size = n;
     nc.listener = ls;
     nc.flags = NSF_UDP;
@@ -2291,6 +2301,13 @@ NS_INTERNAL struct ns_connection *ns_finish_connect(struct ns_connection *nc,
 
   /* No ns_destroy_conn() call after this! */
   ns_set_sock(nc, sock);
+
+  if (nc->use_ssl) {
+#ifdef NS_ENABLE_SSL
+      ns_set_ssl(nc, NULL, NULL);
+#endif
+  }
+
   return nc;
 }
 
@@ -4876,13 +4893,8 @@ struct ns_connection *ns_connect_http(struct ns_mgr *mgr,
   }
 
   if ((nc = ns_connect(mgr, addr, ev_handler)) != NULL) {
+    nc->use_ssl = use_ssl;
     ns_set_protocol_http_websocket(nc);
-
-    if (use_ssl) {
-#ifdef NS_ENABLE_SSL
-      ns_set_ssl(nc, NULL, NULL);
-#endif
-    }
 
     ns_printf(nc,
               "%s /%s HTTP/1.1\r\nHost: %s\r\nContent-Length: %lu\r\n%s\r\n%s",

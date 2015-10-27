@@ -596,6 +596,7 @@ struct ns_connection {
   size_t recv_mbuf_limit;  /* Max size of recv buffer */
   struct mbuf recv_mbuf;   /* Received data */
   struct mbuf send_mbuf;   /* Data scheduled for sending */
+  int use_ssl;
   SSL *ssl;
   SSL_CTX *ssl_ctx;
   time_t last_io_time;              /* Timestamp of the last socket IO */
