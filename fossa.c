@@ -1723,14 +1723,12 @@ const char *ns_set_ssl(struct ns_connection *nc, const char *cert,
   } else if (ns_use_ca_cert(nc->ssl_ctx, ca_cert) != 0) {
     result = "Invalid CA cert";
   } else if (!(nc->flags & NSF_LISTENING) &&
-             (nc->ssl = SSL_new(nc->ssl_ctx)) == NULL) {
+             (SSL_CTX_set_verify(nc->ssl_ctx, SSL_VERIFY_NONE, 0), // Dont care about validating SSL certs to CA (OpenSSL behavior)
+              (nc->ssl = SSL_new(nc->ssl_ctx)) == NULL)) {
     result = "SSL_new() failed";
   } else if (!(nc->flags & NSF_LISTENING)) {
     SSL_set_fd(nc->ssl, nc->sock);
   }
-
-  // TRYOUT
-  SSL_CTX_set_verify(nc->ssl_ctx, SSL_VERIFY_NONE, 0);
 
   SSL_CTX_set_cipher_list(nc->ssl_ctx, ns_s_cipher_list);
   return result;
@@ -1830,6 +1828,7 @@ static void ns_read_from_socket(struct ns_connection *conn) {
       int ssl_err = ns_ssl_err(conn, res);
       getsockopt(conn->sock, SOL_SOCKET, SO_ERROR, (char *) &ok, &len); // just to clear the ERR
       if (res == 1) {
+        ok = 0;
         conn->flags |= NSF_SSL_HANDSHAKE_DONE;
         conn->flags &= ~(NSF_WANT_READ | NSF_WANT_WRITE);
       } else if (ssl_err == SSL_ERROR_WANT_READ ||
@@ -1841,8 +1840,7 @@ static void ns_read_from_socket(struct ns_connection *conn) {
     }
 #endif
     (void) ret;
-    DBG(("%p connect ok=%d", conn, ok));
-    printf(("FOSSA: %p connect ok=%d", conn, ok));
+    DBG("%p connect ok=%d", conn, ok);
     if (ok != 0) {
       conn->flags |= NSF_CLOSE_IMMEDIATELY;
     } else {
