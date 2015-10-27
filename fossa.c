@@ -128,10 +128,6 @@ mbuf_insert(struct mbuf *a, size_t off, const void *buf, size_t len) {
   assert(off <= a->len);
 #endif
   
-  /* check buffers */
-//  if (!a->buf)
-//      return 0;
-
   /* check overflow */
   if (~(size_t) 0 - (size_t) a->buf < len) return 0;
 
