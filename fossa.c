@@ -1836,7 +1836,7 @@ static void ns_read_from_socket(struct ns_connection *conn) {
     }
 #endif
     (void) ret;
-    DBG("%p connect ok=%d", conn, ok);
+    DBG(("%p connect ok=%d", conn, ok));
     if (ok != 0) {
       conn->flags |= NSF_CLOSE_IMMEDIATELY;
     } else {
