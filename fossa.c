@@ -1165,9 +1165,9 @@ int json_emit(char *buf, int buf_len, const char *fmt, ...) {
 #include <sys/epoll.h>
 #endif
 
-#define NS_CTL_MSG_MESSAGE_SIZE 8192
-#define NS_READ_BUFFER_SIZE 2048
-#define NS_UDP_RECEIVE_BUFFER_SIZE 2000
+#define NS_CTL_MSG_MESSAGE_SIZE 1024
+#define NS_READ_BUFFER_SIZE 1024
+#define NS_UDP_RECEIVE_BUFFER_SIZE 1024
 #define NS_VPRINTF_BUFFER_SIZE 500
 #define NS_MAX_HOST_LEN 200
 
@@ -1853,6 +1853,7 @@ static void ns_read_from_socket(struct ns_connection *conn) {
        * Therefore, read in a loop until we read everything. Without the loop,
        * we skip to the next select() cycle which can just timeout. */
       while ((n = SSL_read(conn->ssl, buf_sock, sizeof(buf_sock))) > 0) {
+        //printf("(SSL) conn(%p) sockfd(%d) <- %d bytes\n", conn, conn->sock, n);
         DBG(("%p %d bytes <- %d (SSL)", conn, n, conn->sock));
         mbuf_append(&conn->recv_mbuf, buf_sock, n);
         ns_call(conn, NS_RECV, &n);
@@ -3100,7 +3101,7 @@ static void handle_chunked(struct http_message *hm, char *buf, size_t len) {
 
 static void http_handler(struct ns_connection *nc, int ev, void *ev_data) {
   struct mbuf *io = &nc->recv_mbuf;
-  struct http_message hm;
+  struct http_message hm = {};
   struct ns_str *vec;
   int req_len;
   const int is_req = (nc->listener != NULL);
@@ -4891,7 +4892,7 @@ struct ns_connection *ns_connect_http(struct ns_mgr *mgr,
     ns_set_protocol_http_websocket(nc);
 
     ns_printf(nc,
-              "%s /%s HTTP/1.1\r\nHost: %s\r\nContent-Length: %lu\r\n%s\r\n%s",
+              "%s /%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length: %lu\r\n%s\r\n%s",
               post_data == NULL ? "GET" : "POST", path, addr,
               post_data == NULL ? 0 : strlen(post_data),
               extra_headers == NULL ? "" : extra_headers,
